@@ -174,11 +174,7 @@ cython_debug/
 .pypirc
 
 __pycache__/
-*.pyc
-*.obj
-*.ply
-*.png
-*.jpg
+
 *.DS_Store
 reconst/
 .env/
