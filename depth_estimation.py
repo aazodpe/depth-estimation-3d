@@ -7,11 +7,16 @@ from matplotlib import pyplot as plt
 import open3d as o3d
 import open3d.camera as o3d_camera
 from transformers import DPTImageProcessor, DPTForDepthEstimation
+import os
+
+# Change to the project directory automatically
+project_dir = os.path.dirname(os.path.abspath(__file__))
+os.chdir(project_dir)
 
 #%% 2. Setup
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-image_path = "/depth-estimation-3d/images/sample2.JPG"
+image_path = "images/sample2.JPG"
 
 #%% 3. Load and resize image
 
@@ -59,7 +64,7 @@ plt.colorbar()
 plt.tight_layout()
 plt.show()
 
-#%% 8 preparing depth image for open3d
+#%% 7 preparing depth image for open3d
 
 width, height = image.size
 depth_image = (depth_map*255/np.max(depth_map)).astype('uint8')
@@ -70,17 +75,17 @@ depth_o3d = o3d.geometry.Image(depth_image)
 image_o3d = o3d.geometry.Image(image)
 rgbd_image = o3d.geometry.RGBDImage.create_from_color_and_depth(image_o3d, depth_o3d, convert_rgb_to_intensity=False)
 
-#%% 9 creating a camera
+#%% 8 creating a camera
 
 camera_intrinsic = o3d_camera.PinholeCameraIntrinsic()
 camera_intrinsic.set_intrinsics(width, height, 500, 500, width/2, height/2)
 
-#%% 10 Creating a o3d point cloud
+#%% 9 Creating a o3d point cloud
 
 pcd_raw = o3d.geometry.PointCloud.create_from_rgbd_image(rgbd_image, camera_intrinsic)
 o3d.visualization.draw_geometries([pcd_raw])
 
-#%% 11 Post processing the 3D Cloud
+#%% 10 Post processing the 3D Cloud
 
 cl, ind = pcd_raw.remove_statistical_outlier(nb_neighbors = 20, std_ratio=6.0)
 pcd = pcd_raw.select_by_index(ind)
@@ -91,7 +96,7 @@ pcd.orient_normals_to_align_with_direction()
 
 o3d.visualization.draw_geometries([pcd])
 
-#%% 12 Surface reconstruction
+#%% 11 Surface reconstruction
 
 mesh = o3d.geometry.TriangleMesh.create_from_point_cloud_poisson(pcd, depth = 10, n_threads = 1)[0]
 
@@ -102,6 +107,28 @@ mesh.rotate(rotation, center=(0, 0, 0))
 
 o3d.visualization.draw_geometries([mesh], mesh_show_back_face = True)
 
-#%% 13 3D Mesh Export
+#%% 12 Exports
 
-o3d.io.write_triangle_mesh('/depth-estimation-3d/outputs/3d_model.obj', mesh)
+import os
+from matplotlib import cm
+
+# Create output folder if needed
+os.makedirs("outputs", exist_ok=True)
+
+#Saving 3D Mesh
+o3d.io.write_triangle_mesh('outputs/mesh_output.obj', mesh, write_vertex_colors=True)
+
+# Save RGB image
+Image.fromarray(image).save("outputs/example_rgb.jpg")
+
+# Normalize depth for visualization
+depth_norm = depth_map - depth_map.min()
+depth_norm /= depth_norm.max()
+depth_colored = cm.plasma(depth_norm)[:, :, :3]  # Drop alpha channel
+
+# Convert to uint8 image
+depth_colored_img = (depth_colored * 255).astype(np.uint8)
+Image.fromarray(depth_colored_img).save("outputs/example_depth.png")
+Image.fromarray(depth_colored_img).save("outputs/sample_depthmap.png")
+
+
